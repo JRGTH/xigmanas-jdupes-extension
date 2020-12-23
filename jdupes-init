@@ -138,6 +138,7 @@ ext_initial_download()
 		chmod +x ${CWDIR}/update/${SCRIPTNAME}
 		cp -Rf ${CWDIR}/update/* ${CWDIR}/
 		rm -R ${CWDIR}/update
+		rm -f ${CWDIR}/${BRANCH}.zip
 		echo "Done!"
 	fi
 }
@@ -164,6 +165,7 @@ extension_upgrade()
 			rm -f ${CWDIR}/update/${BRANCH}.zip
 			cp -Rf ${CWDIR}/update/* ${CWDIR}/
 			rm -R ${CWDIR}/update
+			rm -f ${CWDIR}/${BRANCH}.zip
 
 			# Logging the update event.
 			UPDATEVERSION=$(cat ${CWDIR}/version)
