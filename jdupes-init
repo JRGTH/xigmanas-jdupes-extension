@@ -42,10 +42,14 @@ SCRIPTNAME=$(basename $0)
 CONFIG="/cf/conf/config.xml"
 APPNAME="jdupes"
 EXTLOGFILE="${CWDIR}/log/${APPNAME}_ext.log"
+JDUPESLOGFILE=${EXTLOGFILE}
 FULLAPPNAME="${APPNAME}-addon"
 PKGCONF="/etc/pkg/FreeBSD.conf"
 USRLOCAL="/usr/local"
 APPPATH="${USRLOCAL}/bin"
+WWWPATH="/usr/local/www"
+JDUPESCONF="/conf/jdupes_config"
+JDUPESCONFLINK="/var/etc/jdupesconf"
 INSTALLPATH="${CWDIR}/${FULLAPPNAME}"
 BRANCH="master"
 GITURL="https://github.com/JRGTH/xigmanas-${APPNAME}-extension/archive/${BRANCH}.zip"
@@ -67,6 +71,9 @@ runtime_config()
 	fi
 	if [ ! -d "${CWDIR}/log" ]; then
 		mkdir -p ${CWDIR}/log
+	fi
+	if [ ! -d ${CWDIR}/locale-jdupes ]; then
+		mkdir -p ${CWDIR}/locale-jdupes
 	fi
 }
 
@@ -174,12 +181,19 @@ product_check()
 	# Check for the working product.
 	if [ "${PRODUCT}" = "NAS4FREE-x64" ] || [ "${PRODUCT}" = "XIGMANAS-x64" ]; then
 		postinit_cmd
+		gui_start
 	fi
 }
 
 create_addon_env()
 {
 	# Create required directories.
+	if [ ! -d "${CWDIR}/conf" ]; then
+		mkdir -p ${CWDIR}/conf
+	fi
+	if [ ! -d "${CWDIR}/locale-jdupes" ]; then
+		mkdir -p ${CWDIR}/locale-jdupes
+	fi
 	if [ ! -d "${CWDIR}/download/All" ]; then
 		mkdir -p ${CWDIR}/download/All
 	fi
@@ -321,12 +335,122 @@ EOF
 			error_notify "Error: A problem has occurred while executing postinit file."
 			echo "Done!"
 		fi
-		sysrc -f ${CWDIR}${APPCONF} INSTALL_DIR=${CWDIR} >/dev/null 2>&1
+		sysrc -f ${CWDIR}${JDUPESCONF} GUI_ENABLE=YES INSTALL_DIR=${CWDIR} >/dev/null 2>&1
+	fi
+}
+
+gui_start()
+{
+	# Initialize the extension gui.
+	if [ -d "${CWDIR}/gui" ]; then
+		# Always ensure the config directory/file exist.
+		if [ ! -f "${CWDIR}${JDUPESCONF}" ]; then
+			# Try to restore default configuration.
+			runtime_config
+			# Set default config.
+			sysrc -f ${CWDIR}${JDUPESCONF} GUI_ENABLE=YES INSTALL_DIR=${CWDIR} >/dev/null 2>&1
+		fi
+		GUI_STATUS=$(sysrc -f ${CWDIR}${JDUPESCONF} -qn GUI_ENABLE)
+		if [ "${GUI_STATUS}" = "YES" ]; then
+			# Store the installation path and link conf.
+			if ! sysrc -f ${CWDIR}${JDUPESCONF} -n INSTALL_DIR | grep -q "${CWDIR}"; then
+				sysrc -f ${CWDIR}${JDUPESCONF} INSTALL_DIR=${CWDIR} >/dev/null 2>&1
+			fi
+			mkdir -p ${JDUPESCONFLINK}
+			ln -Ffhs ${CWDIR}/conf ${JDUPESCONFLINK}/conf
+			# Copy the gui files.
+			cp -R ${CWDIR}/gui/* ${WWWPATH}/ || error_notify "Error: A problem has occurred while copying extension gui files."
+		fi
+	fi
+}
+
+gui_enable()
+{
+	# Relink conf and copy the gui files.
+	if [ -d "${CWDIR}/gui" ]; then
+		mkdir -p ${JDUPESCONFLINK}
+		ln -Ffhs ${CWDIR}/conf ${JDUPESCONFLINK}/conf
+		sysrc -f ${CWDIR}${JDUPESCONF} GUI_ENABLE=YES >/dev/null 2>&1
+		cp -R ${CWDIR}/gui/* ${WWWPATH}/ || error_notify "Error: A problem has occurred while copying extension gui files."
+		exit 0
+	else
+		error_notify "Error: Extension gui files not found."
+	fi
+}
+
+gui_disable()
+{
+	# Disable gui if -t option specified.
+	if [ -d "${CWDIR}/gui" ]; then
+		rm -f ${WWWPATH}/jdupes-gui.php
+		rm -Rf ${WWWPATH}/ext/jdupes-gui
+		rm -f ${LOCALSHAREPATH}/locale-jdupes
+		rm -Rf ${JDUPESCONFLINK}
+		sysrc -f ${CWDIR}${JDUPESCONF} GUI_ENABLE=NO >/dev/null 2>&1 || error_notify "Error: A problem while removing extension gui files."
+		exit 0
+	else
+		error_notify "Error: Extension gui files not found."
+	fi
+
+	# Remove empty ext folder to prevent empty "Extensions" tab.
+	if [ -d "${WWWPATH}/ext" ]; then
+		if [ ! "$(ls -A ${WWWPATH}/ext)" ]; then
+			rm -R ${WWWPATH}/ext
+		fi
 	fi
 }
 
 pkg_upgrade()
 {
+	# Update FreeBSD.conf file.
+	update_freebsdconf
+
+	# Check for jdupes updates.
+	echo "Looking for new ${APPNAME} package..."
+
+	if [ "${PRDPLATFORM}" = "x64-embedded" ]; then
+		PACKAGELIST="${APPNAME}"
+
+		# To fix pkg: Repository FreeBSD missing. 'pkg update' required on Embedded platforms.
+		pkg upgrade
+
+		# Set product version variables.
+		# We have to use the manifest file for version comparison for Embedded platform.
+		JDUPES=$(grep '"version":"' ${CWDIR}/${FULLAPPNAME}/${APPNAME}/+MANIFEST | cut -d',' -f3 | egrep -o "([0-9]{1,}\.)+[0-9]{1,}" | tr -d '.')
+		NEWJDUPES=$(pkg search ${APPNAME} | cut -d'-' -f2 | tr -d '.' | cut -d' ' -f1)
+
+		# Extract new fetched packages for Embedded platform on new version.
+		if [ "${NEWJDUPES}" -gt "${JDUPES}" ]; then
+			RESTART=1
+			echo "New ${APPNAME} package found, performing upgrade..."
+			NEWJDUPES_VER=$(pkg search ${APPNAME} | cut -d'-' -f2 | cut -d' ' -f1)
+			pkg fetch -y -o ${CWDIR}/download ${APPNAME}-${NEWJDUPES_VER} || \
+			error_notify "Error: A problem has occurred while fetching/locating ${pkg}."
+			echo "Extracting ${APPNAME}-${NEWJDUPES_VER}..."
+			tar -Jxf ${CWDIR}/download/All/${APPNAME}-${NEWJDUPES_VER}.txz -C ${CWDIR}/${FULLAPPNAME}/ || \
+			error_notify "Error: A problem has occurred while extractig files."
+			mv ${CWDIR}/${FULLAPPNAME}/+* ${CWDIR}/${FULLAPPNAME}/${APPNAME}/
+		else
+			echo "No new ${APPNAME} package available!"
+		fi
+
+	elif [ "${PRDPLATFORM}" = "x64-full" ]; then
+		# Set current version.
+		JDUPES=$(pkg info | grep ${APPNAME} | cut -d'-' -f2 | tr -d '.' | cut -d' ' -f1)
+
+		# Issue JDUPES upgrade command in Full platforms. 
+		pkg upgrade -y ${APPNAME} || \
+		error_notify "Error: A problem has occurred while upgrading ${APPNAME}."
+
+		# Set new version.
+		NEWJDUPES=$(pkg info | grep ${APPNAME} | cut -d'-' -f2 | tr -d '.' | cut -d' ' -f1)
+		if [ "${NEWJDUPES}" -gt "${JDUPES}" ]; then
+			echo "New ${APPNAME} package found and upgraded!"
+		else
+			echo "No new ${APPNAME} package available!"
+		fi
+	fi
+
 	# Check for extension updates.
 	extension_upgrade
 }
@@ -340,6 +464,9 @@ reset_install()
 	fi
 	if [ -d "${CWDIR}/log" ]; then
 		rm -rf ${CWDIR}/log
+	fi
+	if [ -d "${CWDIR}/locale-jdupes" ]; then
+		rm -rf ${CWDIR}/locale-jdupes
 	fi
 	if [ -d "${CWDIR}/${FULLAPPNAME}" ]; then
 		rm -rf ${CWDIR}/${FULLAPPNAME}
@@ -366,6 +493,13 @@ remove_addon()
 		done
 	echo "Proceeding..."
 
+	if [ -d "${WWWPATH}/jdupes-gui.php" ]; then
+		rm -f ${WWWPATH}/jdupes-gui.php
+		rm -Rf ${WWWPATH}/ext/jdupes-gui
+		rm -f ${LOCALSHAREPATH}/locale-jdupes
+		rm -Rf ${JDUPESCONFLINK}
+	fi
+
 	# Check for working platform.
 	if [ "${PRDPLATFORM}" = "x64-embedded" ]; then
 		if [ -d "${USRLOCAL}/share/examples/${APPNAME}" ]; then
@@ -389,7 +523,7 @@ remove_addon()
 
 	# Remove addon related files and folders only-
 	# to protect any user-created custom files.
-	FILES="conf download log jdupes-addon README.md postinit release_notes version jdupes-init"
+	FILES="conf download gui locale-jdupes log jdupes-addon README.md postinit release_notes version jdupes-init"
 	for file in ${FILES}; do
 		if [ -f "${CWDIR}/${file}" ] || [ -d "${CWDIR}/${file}" ]; then
 			rm -rf ${CWDIR}/${file}
@@ -415,7 +549,7 @@ get_versions()
 	fi
 
 	# Display product versions.
-	echo -e "\njdupes version:" && ${USRLOCAL}/bin/jdupes -v
+	echo -e "\njdupes version:" && ${USRLOCAL}/bin/jdupes -v | awk 'NR==1'
 	echo -e "\nextension version:"
 	echo "${FULLAPPNAME} ${APPVERSION}"
 	exit 0
@@ -455,12 +589,14 @@ jdupes_init()
 # Run-time configuration.
 runtime_config
 
-while getopts ":ouxrvh" option; do
+while getopts ":ouxrvgth" option; do
 	case ${option} in
 		[h]) echo "Usage: ${SCRIPTNAME} -[option]";
 		echo "Options:"
 		echo "        -u  Upgrade Jdupes/Add-On packages."
 		echo "        -v  Display product version."
+		echo "        -g  Enables the addon GUI."
+		echo "        -t  Disable the addon GUI."
 		echo "        -x  Reset ${FULLAPPNAME}."
 		echo "        -r  Remove ${FULLAPPNAME}."
 		echo "        -h  Display this help message."; exit 0;;
@@ -469,6 +605,8 @@ while getopts ":ouxrvh" option; do
 		[x]) reset_install;;
 		[r]) remove_addon;;
 		[v]) get_versions;;
+		[g]) gui_enable; exit 0 ;; # For enable the addon gui.
+		[t]) gui_disable; exit 0 ;; # For disable the addon gui.
 		[?]) echo "Invalid option, -h for usage."; exit 1;;
 	esac
 done
