@@ -90,9 +90,9 @@ update_freebsdconf()
 
 jdupes_native_download()
 {
-	# Install latest ksh9x package.
+	# Install latest jdupes package.
 	if ! pkg info | grep -q ${APPNAME}; then
-		# Check if ksh9x already exist.
+		# Check if jdupes already exist.
 		if [ ! -f "${APPPATH}/${APPNAME}" ]; then
 			update_freebsdconf
 			pkg install -y ${APPNAME} || error_notify "Error: A problem has occurred while fetching ${APPNAME}."
@@ -102,9 +102,9 @@ jdupes_native_download()
 
 jdupes_initial_download()
 {
-	# Check if ksh9x already exist.
+	# Check if jdupes already exist.
 	if [ ! -f "${CWDIR}/${FULLAPPNAME}/${APPPATH}/${APPNAME}" ]; then
-		# Fetch ksh9x package.
+		# Fetch jdupes package.
 		update_freebsdconf
 		pkg fetch -y -o ${CWDIR}/download ${APPNAME} || \
 		error_notify "Error: A problem has occurred while fetching ${APPNAME}."
@@ -224,7 +224,7 @@ platform_check()
 		create_addon_env
 		ext_initial_download
 		jdupes_native_download
-		bin_symlinks
+		#bin_symlinks
 	fi
 }
 
@@ -245,7 +245,7 @@ sys_symlinkdir()
 	# Check and create/relink required symlinks/dirs for jdupes.
 	# This environment will be checked each time the script is started for consistency.
 
-	# Required directories for ksh9x.
+	# Required directories for jdupes.
 	if [ ! -d "${USRLOCAL}/share/examples" ]; then
 		mkdir -p ${USRLOCAL}/share/examples
 	fi
@@ -258,7 +258,7 @@ sys_symlinkdir()
 
 	bin_symlinks
 
-	# Required symlinks for ksh9x. 
+	# Required symlinks for jdupes. 
 	if [ -d "${INSTALLPATH}/${USRLOCAL}/man/man1" ]; then
 		cd ${INSTALLPATH}/${USRLOCAL}/man/man1
 		for file in *
