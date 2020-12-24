@@ -3,6 +3,7 @@
 ====================
 Version    Description
 
+0.1.4....Improved update code.
 0.1.3....Cleanup and minor code maintenance.
 0.1.2....Cleanup unwanted files after install/update.
 0.1.1....Add basic GUI page for addon maintenance.

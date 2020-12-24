@@ -419,7 +419,7 @@ pkg_upgrade()
 		# Set product version variables.
 		# We have to use the manifest file for version comparison for Embedded platform.
 		JDUPES=$(grep '"version":"' ${CWDIR}/${FULLAPPNAME}/${APPNAME}/+MANIFEST | cut -d',' -f3 | egrep -o "([0-9]{1,}\.)+[0-9]{1,}" | tr -d '.')
-		NEWJDUPES=$(pkg search ${APPNAME} | cut -d'-' -f2 | tr -d '.' | cut -d' ' -f1)
+		NEWJDUPES=$(pkg search ${APPNAME} | awk 'NR==1' | egrep -o "([0-9]{1,}\.)+[0-9]{1,}" | tr -d '.')
 
 		# Extract new fetched packages for Embedded platform on new version.
 		if [ "${NEWJDUPES}" -gt "${JDUPES}" ]; then
@@ -438,14 +438,14 @@ pkg_upgrade()
 
 	elif [ "${PRDPLATFORM}" = "x64-full" ]; then
 		# Set current version.
-		JDUPES=$(pkg info | grep ${APPNAME} | cut -d'-' -f2 | tr -d '.' | cut -d' ' -f1)
+		JDUPES=$(pkg info | grep ${APPNAME} | awk 'NR==1' | egrep -o "([0-9]{1,}\.)+[0-9]{1,}" | tr -d '.')
 
 		# Issue JDUPES upgrade command in Full platforms. 
 		pkg upgrade -y ${APPNAME} || \
 		error_notify "Error: A problem has occurred while upgrading ${APPNAME}."
 
 		# Set new version.
-		NEWJDUPES=$(pkg info | grep ${APPNAME} | cut -d'-' -f2 | tr -d '.' | cut -d' ' -f1)
+		NEWJDUPES=$(pkg info | grep ${APPNAME} | awk 'NR==1' | egrep -o "([0-9]{1,}\.)+[0-9]{1,}" | tr -d '.')
 		if [ "${NEWJDUPES}" -gt "${JDUPES}" ]; then
 			echo "New ${APPNAME} package found and upgraded!"
 		else
