@@ -3,6 +3,7 @@
 ====================
 Version    Description
 
+0.1.7....Fix to replace deprecated PHP date function.
 0.1.6....Quick update to extract .pkg distfiles.
 0.1.5....Fix to don't upgrade all packages at once.
 0.1.4....Improved update code.

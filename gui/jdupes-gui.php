@@ -52,7 +52,8 @@ $cwdir = exec("/usr/bin/grep 'INSTALL_DIR=' {$confdir}/conf/jdupes_config | cut 
 $rootfolder = $cwdir;
 $configfile = "{$rootfolder}/conf/jdupes_config";
 $versionfile = "{$rootfolder}/version";
-$date = strftime('%c');
+//$date = strftime('%c');                // Previous PHP versions, deprecated as of PHP 8.1.
+$date = date('D M d h:i:s Y', time());   // Equivalent date replacement for the previous strftime function.
 $logfile = "{$rootfolder}/log/jdupes_ext.log";
 $logevent = "{$rootfolder}/log/jdupes_last_event.log";
 $prdname = "jdupes";
