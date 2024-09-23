@@ -208,7 +208,7 @@ $(document).ready(function(){
 			</div>
 			<div id="remarks">
 				<?php html_remark("note", gtext("Info"), sprintf(gtext("For general information visit the following link(s):")));?>
-				<div id="enumeration"><ul><li><a href="https://github.com/jbruchon/jdupes" target="_blank" > About Jdupes</a></li></ul></div>
+				<div id="enumeration"><ul><li><a href="https://man.freebsd.org/cgi/man.cgi?query=jdupes" target="_blank" > About Jdupes</a></li></ul></div>
 			</div>
 			<table width="100%" border="0" cellpadding="6" cellspacing="0">
 				<?php html_separator();?>

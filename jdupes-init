@@ -54,6 +54,7 @@ INSTALLPATH="${CWDIR}/${FULLAPPNAME}"
 BRANCH="master"
 GITURL="https://github.com/JRGTH/xigmanas-${APPNAME}-extension/archive/${BRANCH}.zip"
 VERFILE="https://raw.githubusercontent.com/JRGTH/xigmanas-${APPNAME}-extension/${BRANCH}/version"
+NEWDEPENDS="libjodycode xxhash"
 
 error_notify()
 {
@@ -106,7 +107,13 @@ jdupes_initial_download()
 	if [ ! -f "${CWDIR}/${FULLAPPNAME}/${APPPATH}/${APPNAME}" ]; then
 		# Fetch jdupes package.
 		update_freebsdconf
-		pkg fetch -y -o ${CWDIR}/download ${APPNAME} || \
+
+		# Quick workaround for XigmaNAS 13.x and later.
+		DEPENDENCY=
+		if [ "${PRDVERSION}" -ge "131" ]; then
+			DEPENDENCY=${NEWDEPENDS}
+		fi
+		pkg fetch -y -o ${CWDIR}/download ${APPNAME} ${DEPENDENCY} || \
 		error_notify "Error: A problem has occurred while fetching ${APPNAME}."
 		jdupes_pkg_extract
 	fi
@@ -122,6 +129,14 @@ jdupes_pkg_extract()
 		mkdir -p ${CWDIR}/${FULLAPPNAME}/${APPNAME}
 		mv ${CWDIR}/${FULLAPPNAME}/+* ${CWDIR}/${FULLAPPNAME}/${APPNAME}
 		rm ${CWDIR}/download/All/${APPNAME}-*.[tp][xk][zg]
+
+		# Quick workaround for XigmaNAS 13.x and later.
+		if [ "${PRDVERSION}" -ge "131" ]; then
+			tar -Jxf ${CWDIR}/download/All/libjodycode-*.[tp][xk][zg] -C ${CWDIR}/${FULLAPPNAME}/ || \
+			error_notify "Error: A problem has occurred while extractig [libjodycode] files."
+			tar -Jxf ${CWDIR}/download/All/xxhash-*.[tp][xk][zg] -C ${CWDIR}/${FULLAPPNAME}/ || \
+			error_notify "Error: A problem has occurred while extractig [xxhash] files."
+		fi
 		echo "Done!"
 	fi
 }
@@ -230,7 +245,7 @@ platform_check()
 
 bin_symlinks()
 {
-	# Main jdupes symlinks.
+	# Main jdupes/depends symlinks.
 	if [ -d "${INSTALLPATH}/${USRLOCAL}/bin" ]; then
 		cd ${INSTALLPATH}/${USRLOCAL}/bin
 		for file in *
@@ -258,7 +273,7 @@ sys_symlinkdir()
 
 	bin_symlinks
 
-	# Required symlinks for jdupes. 
+	# Required symlinks for jdupes.
 	if [ -d "${INSTALLPATH}/${USRLOCAL}/man/man1" ]; then
 		cd ${INSTALLPATH}/${USRLOCAL}/man/man1
 		for file in *
@@ -279,6 +294,32 @@ sys_symlinkdir()
 			do
 				ln -Ffhs ${INSTALLPATH}/${USRLOCAL}/share/licenses/${file} ${USRLOCAL}/share/licenses/${file}
 		done
+	fi
+
+	# Quick workaround for XigmaNAS 13.x and later.
+	# Required symlinks for new jdupes depends.
+	if [ "${PRDVERSION}" -ge "131" ]; then
+		if [ -d "${INSTALLPATH}/${USRLOCAL}/lib" ]; then
+			cd ${INSTALLPATH}/${USRLOCAL}/lib
+			for file in *
+				do
+					ln -Ffhs ${INSTALLPATH}/${USRLOCAL}/lib/${file} ${USRLOCAL}/lib/${file}
+			done
+		fi
+		if [ -d "${INSTALLPATH}/${USRLOCAL}/libdata/pkgconfig" ]; then
+			cd ${INSTALLPATH}/${USRLOCAL}/libdata/pkgconfig
+			for file in *
+				do
+					ln -Ffhs ${INSTALLPATH}/${USRLOCAL}/libdata/pkgconfig/${file} ${USRLOCAL}/libdata/pkgconfig/${file}
+			done
+		fi
+		if [ -d "${INSTALLPATH}/${USRLOCAL}/include" ]; then
+			cd ${INSTALLPATH}/${USRLOCAL}/include
+			for file in *
+				do
+					ln -Ffhs ${INSTALLPATH}/${USRLOCAL}/include/${file} ${USRLOCAL}/include/${file}
+			done
+		fi
 	fi
 }
 

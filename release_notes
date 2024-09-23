@@ -3,6 +3,7 @@
 ====================
 Version    Description
 
+0.1.9....Quick workaround to support XigmaNAS 13.x and later.
 0.1.8....Fix for PHP 8.1 compatibility.
 0.1.7....Fix to replace deprecated PHP date function.
 0.1.6....Quick update to extract .pkg distfiles.
